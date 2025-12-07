@@ -135,7 +135,7 @@ client.on('interactionCreate', async (interaction) => {
       user.logOn({
         accountName: username,
         password: password,
-        machineName: "steam-hour-farmer",
+        machineName: "Steamline",
         clientOS: SteamUser.EOSType.Windows10,
         autoRelogin: true,
       });
@@ -148,20 +148,20 @@ client.on('interactionCreate', async (interaction) => {
         }
       }, 5 * 60 * 1000);
 
-      await interaction.reply(`Tentando fazer login com a conta ${username} e iniciar o jogo ${gameId}...`);
+      await interaction.reply({content:`Tentando fazer login com a conta ${username} e iniciar o jogo ${gameId}...`, ephemeral: true});
 
     } else if (commandName === 'logout') {
       const username = interaction.options.getString('username', true);
       const user = steamUsers.get(username);
 
       if (!user) {
-        await interaction.reply(`A conta ${username} não está logada.`);
+        await interaction.reply({content: `A conta ${username} não está logada.`, ephemeral: true});
         return;
       }
 
       user.logOff();
       steamUsers.delete(username);
-      await interaction.reply(`Conta ${username} deslogada com sucesso.`);
+      await interaction.reply({content: `Conta ${username} deslogada com sucesso.`, ephemeral: true});
 
     } else if (commandName === 'ping') {
       await interaction.reply('Pong!');
