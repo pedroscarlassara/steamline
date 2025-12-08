@@ -204,7 +204,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         else if (commandName === 'ping') {
-            await interaction.reply('Pong!');
+            await interaction.reply(`Meu ping: ${interaction.client.ws.ping}`);
         }
 
         else if (commandName === 'reconectar') {
