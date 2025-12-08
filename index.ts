@@ -116,7 +116,7 @@ client.on('interactionCreate', async (interaction) => {
         if (commandName === 'login') {
             const username = interaction.options.getString('username', true);
             const password = interaction.options.getString('password', true);
-            const steamGuard = interaction.options.getString('steam_guard', true);
+            const steamGuard = interaction.options.getString('steam_guard', false);
 
             if (steamUsers.has(username)) {
                 await interaction.reply({ content: `Conta ${username} já está logada`, ephemeral: true });
@@ -132,7 +132,9 @@ client.on('interactionCreate', async (interaction) => {
             steamToDiscord.set(username, interaction.user.id);
             storage.addAccount(username, password, interaction.user.id);
 
-            user.on('steamGuard', (_domain, callback) => callback(steamGuard));
+            if (steamGuard != null) {
+                user.on('steamGuard', (_domain, callback) => callback(steamGuard));
+            }
 
             user.on('loggedOn', () => {
                 console.log(`${username} logado`);
@@ -209,7 +211,7 @@ client.on('interactionCreate', async (interaction) => {
 
         else if (commandName === 'reconectar') {
             const username = interaction.options.getString('username', true);
-            const steamGuard = interaction.options.getString('steam_guard', true);
+            const steamGuard = interaction.options.getString('steam_guard', false);
             const discordId = interaction.user.id;
 
             const account = storage.getAccount(username);
@@ -233,7 +235,9 @@ client.on('interactionCreate', async (interaction) => {
             steamUsers.set(username, user);
             steamToDiscord.set(username, discordId);
 
-            user.on('steamGuard', (_domain, callback) => callback(steamGuard));
+            if (steamGuard != null) {
+                user.on('steamGuard', (_domain, callback) => callback(steamGuard));
+            }
 
             user.on('loggedOn', () => {
                 console.log(`${username} reconectado`);
