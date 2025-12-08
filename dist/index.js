@@ -1,0 +1,249 @@
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const discord_js_1 = require("discord.js");
+const steam_user_1 = __importDefault(require("steam-user"));
+const storage_1 = require("./storage");
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
+const client = new discord_js_1.Client({ intents: [discord_js_1.GatewayIntentBits.Guilds] });
+const steamUsers = new Map();
+const steamToDiscord = new Map();
+const storage = new storage_1.AccountStorage();
+const commands = [
+    new discord_js_1.SlashCommandBuilder()
+        .setName('ping')
+        .setDescription('Responde com Pong.')
+        .toJSON(),
+    new discord_js_1.SlashCommandBuilder()
+        .setName('help')
+        .setDescription('Lista todos os comandos disponíveis.')
+        .toJSON(),
+    new discord_js_1.SlashCommandBuilder()
+        .setName('login')
+        .setDescription('Loga na conta Steam')
+        .addStringOption(o => o.setName('username').setDescription('Steam username').setRequired(true))
+        .addStringOption(o => o.setName('password').setDescription('Steam password').setRequired(true))
+        .addStringOption(o => o.setName('steam_guard').setDescription('Steam Guard code').setRequired(true))
+        .toJSON(),
+    new discord_js_1.SlashCommandBuilder()
+        .setName('logout')
+        .setDescription('Desloga da conta Steam')
+        .addStringOption(o => o.setName('username')
+        .setDescription('Conta Steam')
+        .setRequired(true)
+        .setAutocomplete(true))
+        .toJSON(),
+    new discord_js_1.SlashCommandBuilder()
+        .setName('jogo')
+        .setDescription('Define os jogos ativos')
+        .addStringOption(o => o.setName('username')
+        .setDescription('Conta Steam')
+        .setRequired(true)
+        .setAutocomplete(true))
+        .addStringOption(o => o.setName('appids')
+        .setDescription('IDs dos jogos separados por ; (ex: 730;760;240)')
+        .setRequired(true))
+        .toJSON(),
+    new discord_js_1.SlashCommandBuilder()
+        .setName('contas')
+        .setDescription('Lista todas as contas Steam logadas')
+        .toJSON(),
+    new discord_js_1.SlashCommandBuilder()
+        .setName('reconectar')
+        .setDescription('Reconecta uma conta salva')
+        .addStringOption(o => o.setName('username')
+        .setDescription('Conta Steam')
+        .setRequired(true)
+        .setAutocomplete(true))
+        .addStringOption(o => o.setName('steam_guard').setDescription('Steam Guard code').setRequired(true))
+        .toJSON(),
+    new discord_js_1.SlashCommandBuilder()
+        .setName('remover')
+        .setDescription('Remove uma conta salva permanentemente')
+        .addStringOption(o => o.setName('username')
+        .setDescription('Conta Steam')
+        .setRequired(true)
+        .setAutocomplete(true))
+        .toJSON(),
+];
+function registerCommands() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const token = "MTQ0NzAwODQzNTA4MTMxNDM2Ng.G-Qkps.LsFrlmXt3JMyhc6qti3K22RJwjUjTzt9_dId_g";
+        const clientId = "1447008435081314366";
+        const rest = new discord_js_1.REST().setToken(token);
+        yield rest.put(discord_js_1.Routes.applicationCommands(clientId), { body: commands });
+    });
+}
+client.on('clientReady', () => __awaiter(void 0, void 0, void 0, function* () {
+    if (!client.user)
+        return;
+    console.log(`Bot conectado como ${client.user.tag}`);
+    yield registerCommands();
+}));
+client.on('interactionCreate', (interaction) => __awaiter(void 0, void 0, void 0, function* () {
+    // Autocomplete
+    if (interaction.isAutocomplete()) {
+        const focusedOption = interaction.options.getFocused(true);
+        if (focusedOption.name === 'username') {
+            const userAccounts = storage.getUserAccounts(interaction.user.id);
+            const filtered = userAccounts
+                .filter(acc => acc.username.toLowerCase().includes(focusedOption.value.toLowerCase()))
+                .slice(0, 25)
+                .map(acc => ({ name: acc.username, value: acc.username }));
+            yield interaction.respond(filtered);
+        }
+        return;
+    }
+    if (!interaction.isChatInputCommand())
+        return;
+    const commandName = interaction.commandName;
+    try {
+        if (commandName === 'login') {
+            const username = interaction.options.getString('username', true);
+            const password = interaction.options.getString('password', true);
+            const steamGuard = interaction.options.getString('steam_guard', true);
+            if (steamUsers.has(username)) {
+                yield interaction.reply({ content: `Conta ${username} já está logada`, ephemeral: true });
+                return;
+            }
+            const user = new steam_user_1.default({
+                machineIdType: steam_user_1.default.EMachineIDType.PersistentRandom,
+                dataDirectory: `SteamData/${username}`,
+            });
+            steamUsers.set(username, user);
+            steamToDiscord.set(username, interaction.user.id);
+            storage.addAccount(username, password, interaction.user.id);
+            user.on('steamGuard', (_domain, callback) => callback(steamGuard));
+            user.on('loggedOn', () => {
+                console.log(`${username} logado`);
+                user.setPersona(steam_user_1.default.EPersonaState.Online);
+            });
+            user.on('error', err => console.error(`Erro em ${username}:`, err));
+            user.logOn({ accountName: username, password });
+            yield interaction.reply({ content: `Tentando logar em ${username}...`, ephemeral: true });
+        }
+        else if (commandName === 'logout') {
+            const username = interaction.options.getString('username', true);
+            const user = steamUsers.get(username);
+            if (!user)
+                return interaction.reply({ content: `Conta ${username} não está logada`, ephemeral: true });
+            user.logOff();
+            steamUsers.delete(username);
+            steamToDiscord.delete(username);
+            storage.removeAccount(username);
+            yield interaction.reply({ content: `Conta ${username} deslogada com sucesso`, ephemeral: true });
+        }
+        else if (commandName === 'jogo') {
+            const username = interaction.options.getString('username', true);
+            const discordId = interaction.user.id;
+            // Verifica se a conta pertence ao usuário
+            if (steamToDiscord.get(username) !== discordId) {
+                return interaction.reply({ content: `Você não tem permissão para controlar a conta ${username}`, ephemeral: true });
+            }
+            const user = steamUsers.get(username);
+            if (!user)
+                return interaction.reply({ content: `Conta ${username} não está logada`, ephemeral: true });
+            const appidsInput = interaction.options.getString('appids', true);
+            const appids = appidsInput.split(';').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            if (appids.length === 0) {
+                return interaction.reply({ content: 'Nenhum AppID válido fornecido', ephemeral: true });
+            }
+            user.gamesPlayed(appids);
+            console.log(`${username} está jogando: ${appids.join(', ')}`);
+            yield interaction.reply({ content: `${username} está jogando ${appids.length} jogo(s): ${appids.join(', ')}`, ephemeral: true });
+        }
+        else if (commandName === 'contas') {
+            const discordId = interaction.user.id;
+            const savedAccounts = storage.getUserAccounts(discordId);
+            if (savedAccounts.length === 0) {
+                return interaction.reply({ content: 'Você não tem contas Steam salvas', ephemeral: true });
+            }
+            const accountList = savedAccounts.map(acc => {
+                const isOnline = steamUsers.has(acc.username);
+                return `${isOnline ? '🟢' : '🔴'} ${acc.username}`;
+            }).join('\n');
+            yield interaction.reply({
+                content: `Suas contas (${savedAccounts.length}):\n${accountList}\n\n🟢 = Online | 🔴 = Offline`,
+                ephemeral: true
+            });
+        }
+        else if (commandName === 'ping') {
+            yield interaction.reply(`Meu ping: ${interaction.client.ws.ping}`);
+        }
+        else if (commandName === 'reconectar') {
+            const username = interaction.options.getString('username', true);
+            const steamGuard = interaction.options.getString('steam_guard', true);
+            const discordId = interaction.user.id;
+            const account = storage.getAccount(username);
+            if (!account) {
+                return interaction.reply({ content: `Conta ${username} não encontrada`, ephemeral: true });
+            }
+            if (account.discordId !== discordId) {
+                return interaction.reply({ content: `Você não tem permissão para reconectar a conta ${username}`, ephemeral: true });
+            }
+            if (steamUsers.has(username)) {
+                return interaction.reply({ content: `Conta ${username} já está logada`, ephemeral: true });
+            }
+            const user = new steam_user_1.default({
+                machineIdType: steam_user_1.default.EMachineIDType.PersistentRandom,
+                dataDirectory: `SteamData/${username}`,
+            });
+            steamUsers.set(username, user);
+            steamToDiscord.set(username, discordId);
+            user.on('steamGuard', (_domain, callback) => callback(steamGuard));
+            user.on('loggedOn', () => {
+                console.log(`${username} reconectado`);
+                user.setPersona(steam_user_1.default.EPersonaState.Online);
+            });
+            user.on('error', err => console.error(`Erro em ${username}:`, err));
+            user.logOn({ accountName: username, password: account.password });
+            yield interaction.reply({ content: `Reconectando ${username}...`, ephemeral: true });
+        }
+        else if (commandName === 'remover') {
+            const username = interaction.options.getString('username', true);
+            const discordId = interaction.user.id;
+            const account = storage.getAccount(username);
+            if (!account) {
+                return interaction.reply({ content: `Conta ${username} não encontrada`, ephemeral: true });
+            }
+            if (account.discordId !== discordId) {
+                return interaction.reply({ content: `Você não tem permissão para remover a conta ${username}`, ephemeral: true });
+            }
+            // Desloga se estiver logada
+            const user = steamUsers.get(username);
+            if (user) {
+                user.logOff();
+                steamUsers.delete(username);
+                steamToDiscord.delete(username);
+            }
+            storage.removeAccount(username);
+            yield interaction.reply({ content: `Conta ${username} removida permanentemente`, ephemeral: true });
+        }
+        else if (commandName === 'help') {
+            const commandList = commands.map(cmd => `/${cmd.name}`).join(', ');
+            yield interaction.reply({ content: `Comandos disponíveis: ${commandList}`, ephemeral: true });
+        }
+    }
+    catch (err) {
+        console.error(`Erro ao executar comando ${commandName}:`, err);
+        if (interaction.replied || interaction.deferred) {
+            yield interaction.followUp('Erro ao executar comando.');
+        }
+        else {
+            yield interaction.reply('Erro ao executar comando.');
+        }
+    }
+}));
+client.login("MTQ0NzAwODQzNTA4MTMxNDM2Ng.G-Qkps.LsFrlmXt3JMyhc6qti3K22RJwjUjTzt9_dId_g");
