@@ -7,7 +7,7 @@ interface AccountData {
     discordId: string;
 }
 
-const STORAGE_FILE = path.join(__dirname, '..', 'accounts.json');
+const STORAGE_FILE = path.join(process.cwd(), 'accounts.json');
 
 export class AccountStorage {
     private accounts: Map<string, AccountData> = new Map();
