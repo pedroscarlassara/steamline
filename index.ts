@@ -25,7 +25,7 @@ const commands = [
         .setDescription('Loga na conta Steam')
         .addStringOption(o => o.setName('username').setDescription('Steam username').setRequired(true))
         .addStringOption(o => o.setName('password').setDescription('Steam password').setRequired(true))
-        .addStringOption(o => o.setName('steam_guard').setDescription('Steam Guard code').setRequired(true))
+        .addStringOption(o => o.setName('steam_guard').setDescription('Steam Guard code'))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('logout')
@@ -65,7 +65,7 @@ const commands = [
                 .setRequired(true)
                 .setAutocomplete(true)
         )
-        .addStringOption(o => o.setName('steam_guard').setDescription('Steam Guard code').setRequired(true))
+        .addStringOption(o => o.setName('steam_guard').setDescription('Steam Guard code'))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('remover')
