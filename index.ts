@@ -83,7 +83,9 @@ client.on('interactionCreate', async (interaction) => {
 
             let account_data: Account = {username: username, password: password};
 
-            fs.writeFileSync('./accounts.txt',`${account_data}` ,{ encoding: 'utf8', flag: 'w' });
+            const jsonString = JSON.stringify(account_data, null, 2)
+
+            fs.writeFileSync('./accounts.txt', jsonString, { encoding: 'utf8', flag: 'w' });
 
             if (steamUsers.has(username)) {
                 await interaction.reply({ content: `Conta ${username} já está logada`, ephemeral: true });
