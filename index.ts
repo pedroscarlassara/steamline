@@ -1,13 +1,17 @@
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder} from 'discord.js';
 import SteamUser from 'steam-user';
 import dotenv from 'dotenv';
-
-dotenv.config();
+import * as fs from 'fs';
+import {Account} from "./types/Account";
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 const steamUsers = new Map<string, SteamUser>();
 const steamToDiscord = new Map<string, string>();
+
+if (!fs.existsSync('./accounts.txt')) {
+    fs.writeFileSync('./accounts.txt', '');
+}
 
 const commands = [
     new SlashCommandBuilder()
@@ -77,6 +81,10 @@ client.on('interactionCreate', async (interaction) => {
             const password = interaction.options.getString('password', true);
             const steamGuard = interaction.options.getString('steam_guard', true);
 
+            let account_data: Account = {username: username, password: password};
+
+            fs.writeFileSync('./accounts.txt',`${account_data}` ,{ encoding: 'utf8', flag: 'w' });
+
             if (steamUsers.has(username)) {
                 await interaction.reply({ content: `Conta ${username} já está logada`, ephemeral: true });
                 return;
@@ -120,7 +128,6 @@ client.on('interactionCreate', async (interaction) => {
             const username = interaction.options.getString('username', true);
             const discordId = interaction.user.id;
 
-            // Verifica se a conta pertence ao usuário
             if (steamToDiscord.get(username) !== discordId) {
                 return interaction.reply({ content: `Você não tem permissão para controlar a conta ${username}`, ephemeral: true });
             }
