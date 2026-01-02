@@ -16,45 +16,45 @@ if (!fs.existsSync('./accounts.txt')) {
 const commands = [
     new SlashCommandBuilder()
         .setName('ping')
-        .setDescription('Responde com Pong.')
+        .setDescription('Responds with Pong.')
         .toJSON(),
     new SlashCommandBuilder()
         .setName('help')
-        .setDescription('Lista todos os comandos disponíveis.')
+        .setDescription('Lists all available commands.')
         .toJSON(),
     new SlashCommandBuilder()
         .setName('login')
-        .setDescription('Loga na conta Steam')
+        .setDescription('Log into Steam account')
         .addStringOption(o => o.setName('username').setDescription('Steam username').setRequired(true))
         .addStringOption(o => o.setName('password').setDescription('Steam password').setRequired(true))
         .addStringOption(o => o.setName('steam_guard').setDescription('Steam Guard code').setRequired(true))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('logout')
-        .setDescription('Desloga da conta Steam')
+        .setDescription('Log out from Steam account')
         .addStringOption(o =>
             o.setName('username')
-                .setDescription('Conta Steam')
+                .setDescription('Steam account')
                 .setRequired(true)
         )
         .toJSON(),
     new SlashCommandBuilder()
-        .setName('jogo')
-        .setDescription('Define os jogos ativos')
+        .setName('play')
+        .setDescription('Set active games')
         .addStringOption(o =>
             o.setName('username')
-                .setDescription('Conta Steam')
+                .setDescription('Steam account')
                 .setRequired(true)
         )
         .addStringOption(o =>
             o.setName('appids')
-                .setDescription('IDs dos jogos separados por ; (ex: 730;760;240)')
+                .setDescription('Game IDs separated by ; (ex: 730;760;240)')
                 .setRequired(true)
         )
         .toJSON(),
     new SlashCommandBuilder()
-        .setName('contas')
-        .setDescription('Lista todas as contas Steam logadas')
+        .setName('accounts')
+        .setDescription('List all logged Steam accounts')
         .toJSON(),
 ];
 
@@ -88,7 +88,7 @@ client.on('interactionCreate', async (interaction) => {
             fs.writeFileSync('./accounts.txt', jsonString, { encoding: 'utf8', flag: 'w' });
 
             if (steamUsers.has(username)) {
-                await interaction.reply({ content: `Conta ${username} já está logada`, ephemeral: true });
+                await interaction.reply({ content: `Account ${username} is already logged in`, ephemeral: true });
                 return;
             }
 
@@ -103,86 +103,86 @@ client.on('interactionCreate', async (interaction) => {
             user.on('steamGuard', (_domain, callback) => callback(steamGuard));
 
             user.on('loggedOn', () => {
-                console.log(`${username} logado`);
+                console.log(`${username} logged in`);
                 user.setPersona(SteamUser.EPersonaState.Online);
             });
 
-            user.on('error', err => console.error(`Erro em ${username}:`, err));
+            user.on('error', err => console.error(`Error in ${username}:`, err));
 
             user.logOn({ accountName: username, password });
 
-            await interaction.reply({ content: `Tentando logar em ${username}...`, ephemeral: true });
+            await interaction.reply({ content: `Attempting to log into ${username}...`, ephemeral: true });
         }
 
         else if (commandName === 'logout') {
             const username = interaction.options.getString('username', true);
             const user = steamUsers.get(username);
-            if (!user) return interaction.reply({ content: `Conta ${username} não está logada`, ephemeral: true });
+            if (!user) return interaction.reply({ content: `Account ${username} is not logged in`, ephemeral: true });
 
             user.logOff();
             steamUsers.delete(username);
             steamToDiscord.delete(username);
 
-            await interaction.reply({ content: `Conta ${username} deslogada com sucesso`, ephemeral: true });
+            await interaction.reply({ content: `Account ${username} logged out successfully`, ephemeral: true });
         }
 
-        else if (commandName === 'jogo') {
+        else if (commandName === 'play') {
             const username = interaction.options.getString('username', true);
             const discordId = interaction.user.id;
 
             if (steamToDiscord.get(username) !== discordId) {
-                return interaction.reply({ content: `Você não tem permissão para controlar a conta ${username}`, ephemeral: true });
+                return interaction.reply({ content: `You don't have permission to control account ${username}`, ephemeral: true });
             }
 
             const user = steamUsers.get(username);
-            if (!user) return interaction.reply({ content: `Conta ${username} não está logada`, ephemeral: true });
+            if (!user) return interaction.reply({ content: `Account ${username} is not logged in`, ephemeral: true });
 
             const appidsInput = interaction.options.getString('appids', true);
             const appids = appidsInput.split(';').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
 
             if (appids.length === 0) {
-                return interaction.reply({ content: 'Nenhum AppID válido fornecido', ephemeral: true });
+                return interaction.reply({ content: 'No valid AppID provided', ephemeral: true });
             }
 
             user.gamesPlayed(appids);
-            console.log(`${username} está jogando: ${appids.join(', ')}`);
+            console.log(`${username} is playing: ${appids.join(', ')}`);
 
-            await interaction.reply({ content: `${username} está jogando ${appids.length} jogo(s): ${appids.join(', ')}`, ephemeral: true });
+            await interaction.reply({ content: `${username} is playing ${appids.length} game(s): ${appids.join(', ')}`, ephemeral: true });
         }
 
-        else if (commandName === 'contas') {
+        else if (commandName === 'accounts') {
             const discordId = interaction.user.id;
             const userAccounts = Array.from(steamUsers.entries())
                 .filter(([username]) => steamToDiscord.get(username) === discordId)
                 .map(([username]) => username);
 
             if (userAccounts.length === 0) {
-                return interaction.reply({ content: 'Você não tem contas Steam logadas', ephemeral: true });
+                return interaction.reply({ content: 'You have no Steam accounts logged in', ephemeral: true });
             }
 
-            const accountList = userAccounts.map(username => `🟢 ${username}`).join('\n');
+            const accountList = userAccounts.map(username => `• ${username}`).join('\n');
 
             await interaction.reply({
-                content: `Suas contas logadas (${userAccounts.length}):\n${accountList}`,
+                content: `Your logged accounts (${userAccounts.length}):\n${accountList}`,
                 ephemeral: true
             });
         }
 
         else if (commandName === 'ping') {
-            await interaction.reply(`Meu ping: ${interaction.client.ws.ping}`);
+            await interaction.reply(`My ping: ${interaction.client.ws.ping}`);
         }
 
         else if (commandName === 'help') {
             const commandList = commands.map(cmd => `/${cmd.name}`).join(', ');
-            await interaction.reply({ content: `Comandos disponíveis: ${commandList}`, ephemeral: true });
+            await interaction.reply({ content: `Available commands: ${commandList}`, ephemeral: true });
         }
 
     } catch (err) {
-        console.error(`Erro ao executar comando ${commandName}:`, err);
+        console.error(`Error executing command ${commandName}:`, err);
         if (interaction.replied || interaction.deferred) {
-            await interaction.followUp('Erro ao executar comando.');
+            await interaction.followUp('Error executing command.');
         } else {
-            await interaction.reply('Erro ao executar comando.');
+            await interaction.reply('Error executing command.');
         }
     }
 });
